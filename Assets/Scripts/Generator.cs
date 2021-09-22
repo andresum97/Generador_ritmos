@@ -39,7 +39,18 @@ public class Generator : MonoBehaviour
     List<int> filler = new List<int>();
     List<int> rythm = new List<int>();
     List<int> metric = new List<int>();
-    
+
+    List<string> NOTAS = new List<string>() {"C","C#","D","D#","E","F","F#","G","G#","A","A#","B"};
+    List<int> FORMULA = new List<int>() {2,2,1,2,2,2,1};
+    List<int> ACORDESF = new List<int>() {0,2,4};
+    List<int> ACORDESMAYOR = new List<int>() {4,7};
+    List<int> ACORDESMENOR = new List<int>() {3,7};
+    List<int> ACORDESDIS = new List<int>() {3,6};
+    List<int> ACORDESAUM = new List<int>() {4,8};
+    List<int> TONICA = new List<int>() {1,3,6};
+    List<int> SUBDOMINANTE = new List<int>() {2,4};
+    List<int> DOMINANTE = new List<int>() {5,7};
+        
     private int[] cantSubdivision = {3,4}; // 3/4, 4/4
     
 
@@ -54,7 +65,11 @@ public class Generator : MonoBehaviour
     {
         BPM = 120; //Int32.Parse(BPM_text.text);
         seed = 123;
-        Player = false; // coroutine = player();
+        Player = false; // coroutine = player()
+        int grado = 3;
+        string nota = "D";
+        var resultados = calculoEscala(nota,grado);
+        calculoAcordes(resultados.Item1,resultados.Item2,resultados.Item3);
     }
 
     // void Update()
@@ -148,6 +163,110 @@ public class Generator : MonoBehaviour
         Debug.Log("Metrica "+metric);
         Debug.Log("Rythm "+rythm);
     }
+
+    (List<string>,string,string) calculoEscala(string nota,int grado)
+    {
+        int indice = NOTAS.IndexOf(nota);
+        List<string> resultado = new List<string>();
+        int indice_escala = 0;
+        int cont_tono = 0;
+        resultado.Add(nota);
+        foreach (var tono in FORMULA)
+        {
+            cont_tono = cont_tono + tono;
+            indice_escala = indice + cont_tono;
+            resultado.Add(NOTAS[indice_escala%12]);
+        }
+        Debug.Log("Resultado ->"+string.Join(", ",resultado));
+        string rol = "";
+        if(TONICA.Contains(grado)){
+            rol = "Tonica";
+        }
+        else
+        if(SUBDOMINANTE.Contains(grado)){
+            rol = "Subdominante";
+        }
+        else
+        if(DOMINANTE.Contains(grado)){
+            rol = "Dominante";
+        }
+
+        string notaselec = resultado[grado-1];
+
+        return (resultado, notaselec,rol);
+    }
+
+    void calculoAcordes(List<string> notas,string notaselec, string rol)
+    {
+        string tipo = "";
+        foreach(var nota in notas){
+            int indice = notas.IndexOf(nota);
+            List<string> resultado = new List<string>();
+            int indice_escala = 0;
+            foreach(var cont in ACORDESF){
+                indice_escala = indice + cont;
+                resultado.Add(notas[indice_escala%7]);
+            }
+
+            int indice_raiz = NOTAS.IndexOf(resultado[0]);
+
+            int indice_tercera1 = -1;
+            int indice_tercera2 = -1;
+            cont = indice_raiz;
+            while(indice_tercera1 == -1 || indice_tercera2 == -1){
+                int i = cont % 12;
+                if(resultado[1] == NOTAS[i])
+                {
+                    indice_tercera1 = cont;
+                }
+                if(resultado[2] == NOTAS[i])
+                {
+                    indice_tercera2 = cont;
+                }
+                cont++;
+            }
+
+            int primer_tercera = indice_tercera1 - indice_raiz;
+            int segunda_tercera = indice_tercera2 - indice_raiz;
+            
+            List<int> temp = new List<int>() {primer_tercera, segunda_tercera};
+
+            Debug.Log("Lista de temp "+string.Join(", ",temp));
+
+            if(temp.Intersect(ACORDESMAYOR).Count() == 2)
+            {
+                Debug.Log("Ingreso aqui mayor");
+                tipo = "mayor";
+            }
+            else
+            if(temp.Intersect(ACORDESMENOR).Count() == 2)
+            {
+                Debug.Log("Ingreso aqui menor");
+                tipo = "menor";
+            }
+            else
+            if(temp.Intersect(ACORDESDIS).Count() == 2)
+            {
+                Debug.Log("Ingreso aqui dis");
+                tipo = "disminuido";
+            }
+            else
+            if(temp.Intersect(ACORDESAUM).Count() == 2)
+            {
+                Debug.Log("Ingreso aqui aum");
+                tipo = "aumentado";
+            }
+
+            Debug.Log("El tipo es "+tipo);
+
+            // if(nota == notaselec)
+            // {
+            Debug.Log("Acorde de "+nota+" : "+string.Join(", ",resultado)+ "| "+tipo+" y su rol es: "+rol);
+            // }
+            
+        }
+    }
+        
 
     // public void StartPlayer()
     // {
