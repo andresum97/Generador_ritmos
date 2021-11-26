@@ -16,6 +16,11 @@ public class Generator : MonoBehaviour
     public AudioSource[] sounds;
     public AudioSource[] acordes;
 
+    public AudioSource metricSound;
+    public AudioSource rythmSound;
+    public AudioSource fillerSound;
+
+
     public int BPM;
     private int seed;
     private int subdivisionBase = 4;
@@ -23,6 +28,7 @@ public class Generator : MonoBehaviour
     private float sonidosPiano;
     private float time;
     private float time2;
+    private float time3;
     private int cont = 0;
     private int beat = 0;
 
@@ -39,13 +45,36 @@ public class Generator : MonoBehaviour
     public Text rythm_text;
     public Text filler_text;
     public Text note_text;
+
+    public Text nota_base;
     
 
     //Para acordes
-    private int tocandoAhora;
+    private int tocandoAhoraAcorde;
+    private int tocandoAhoraMelodia;
+    private int estructura;
+    private int tocandoAhoraEstructura;
 
     public bool playSound;
+    private bool playChord;
+    private bool playingMelody;
 
+    List<string> notasFinal = new List<string>();
+    List<AudioSource> notasTonos = new List<AudioSource>();
+    List<int> notasFinalMusica = new List<int>();
+    List<int> notasMelodiaMusica = new List<int>();
+
+    List<float> longitudMelodia = new List<float>();
+
+
+
+    Dictionary<int, List<int>> DictFiller = new Dictionary<int, List<int>>();
+    Dictionary<int, List<int>> DictMetrica = new Dictionary<int, List<int>>();
+    Dictionary<int, List<int>> DictRitmo = new Dictionary<int, List<int>>();
+    Dictionary<int, List<int>> DictAcorde = new Dictionary<int, List<int>>();
+    Dictionary<int, List<float>> DictAcordeLongitud = new Dictionary<int, List<float>>();
+    Dictionary<int, List<int>> DictMelodia = new Dictionary<int, List<int>>();
+    Dictionary<int, List<float>> DictMelodiaLongitud = new Dictionary<int, List<float>>();
 
 
     // private int cantTime = 100;
@@ -55,12 +84,14 @@ public class Generator : MonoBehaviour
     List<int> rythm = new List<int>();
     List<int> metric = new List<int>();
 
+    List<int> listaEstructura = new List<int>();
+
     List<string> notasParaAcordes = new List<string>();
     List<int> acordesFinales = new List<int>();
     List<float> longitudAcordes = new List<float>();
 
     List<int> compas = new List<int>(); //Se tratabajara con 16 valores para evitar usar decimales como 1/2
-    List<string> NOTAS = new List<string>() {"C","C#","D","D#","E","F","F#","G","G#","A","A#","B"};
+    List<string> NOTAS = new List<string>() {"C","C#","D","D#","E","F","F#","G","G#","A","A#","B","C5","C#5","D5","D#5 ","E5","F5","F#5","G5","G#5","A5","A#5","B5"};
     List<int> FORMULA = new List<int>() {2,2,1,2,2,2,1};
     List<int> ACORDESF = new List<int>() {0,2,4};
     List<int> ACORDESMAYOR = new List<int>() {4,7};
@@ -78,17 +109,22 @@ public class Generator : MonoBehaviour
     // bool en vez de IEnumerator
     public bool Player;
 
+    public Dictionary<List<int>,List<float>> formas = new Dictionary<List<int>,List<float>>();
+    public List<List<int>> formasLista = new List<List<int>>();
+    private List<int> calidad = new List<int>();
+
 
 
     // Start is called before the first frame update
     void Start()
     {
-        BPM = 120; //Int32.Parse(BPM_text.text);
+        BPM = 60; //Int32.Parse(BPM_text.text);
         seed = 123;
         Player = false; // coroutine = player()
         int grado = 3;
         string nota = "E";
         acordeActual = 0;
+        tocandoAhoraEstructura = 0;
         var resultados = calculoEscala(nota,grado);
         calculoAcordes(resultados.Item1,resultados.Item2,resultados.Item3);
     }
@@ -110,26 +146,57 @@ public class Generator : MonoBehaviour
         subdivisionBase = cantSubdivision[Random.Range(0,cantSubdivision.Length)];
         beat = 0;
         cont = 0;
-        filler.Clear();
-        rythm.Clear();
-        metric.Clear();
+        estructura = 0;
+        playSound = false;
+        playingMelody = false;
+        // filler.Clear();
+        // rythm.Clear();
+        // metric.Clear();
+        listaEstructura.Clear();
+        listaEstructura.Add(0);
+        DictAcorde.Clear();
+        DictAcordeLongitud.Clear();
+        DictMelodiaLongitud.Clear();
+        DictMelodia.Clear();
+        DictFiller.Clear();
+        DictMetrica.Clear();
+        DictRitmo.Clear();
+    
         createFill();
         GenerarEscala();
+        for(int i = 0; i < 3; i++){
+            int random = Random.Range(0,2); //Random de estructuras
+            if(random == 0)
+            {
+                estructura += 1;
+                createFill();
+                GenerarEscala();
+                listaEstructura.Add(estructura);
+            }
+            else{
+                int repetido = Random.Range(0,listaEstructura.Count);
+                listaEstructura.Add(repetido);
+            }
+        }
     }
 
 
     public void createFill()
     {
+        rythm = new List<int>();
+        metric = new List<int>();
+        filler = new List<int>();
+
         int typeOfNote = Random.Range(0,3);
 
         if(typeOfNote == 0) //Notas negras
         {
             for(int i = 0; i < subdivisionBase; i++)
             {
-                metric.Add(1);
+                rythm.Add(1);
                 for (int j = 0; j < 3; j++)
                 {
-                    metric.Add(0);
+                    rythm.Add(0);
                 }
             }
         }
@@ -139,31 +206,31 @@ public class Generator : MonoBehaviour
         {
             for (int i = 0; i < subdivisionBase*2; i++)
             {
-                metric.Add(1);
-                metric.Add(0);
+                rythm.Add(1);
+                rythm.Add(0);
             }
         }
         else //Notas semicorcheas
         {
             for(int i = 0; i < subdivisionBase*4; i++)
             {   
-                metric.Add(1);
+                rythm.Add(1);
             }
         }
         
         //Se llena el ritmo
         for (int i = 0; i < subdivisionBase; i++)
         {
-            rythm.Add(1);
+            metric.Add(1);
             for (int j = 0; j < 3; j++)
             {
-                rythm.Add(0);
+                metric.Add(0);
             }
         }
 
-        for(int i = 0; i < metric.Count; i++)
+        for(int i = 0; i < rythm.Count; i++)
         {
-            if(metric[i] == 0)
+            if(rythm[i] == 0)
             {
                 if(Random.Range(0,2) == 1)
                 {
@@ -175,12 +242,15 @@ public class Generator : MonoBehaviour
                 }
             }
             else
-            if(metric[i] == 1)
+            if(rythm[i] == 1)
             {
                 filler.Add(0);
             }
         }
         filler_text.text = "Relleno: "+ string.Join(", ",filler);
+        DictRitmo.Add(estructura, rythm);
+        DictMetrica.Add(estructura, metric);
+        DictFiller.Add(estructura, filler);
         Debug.Log("Filler "+filler);
         Debug.Log("Metrica "+metric);
         Debug.Log("Rythm "+rythm);
@@ -220,8 +290,11 @@ public class Generator : MonoBehaviour
 
     void GenerarEscala()
     {
-        List<int> NotasSeleccionadas = new List<int>();
-        string notaBase = note_text.text;
+        notasFinalMusica = new List<int>();
+        notasMelodiaMusica = new List<int>();
+        // List<int> NotasSeleccionadas = new List<int>();
+        string notaBase = NOTAS[Random.Range(0, NOTAS.Count)];
+        note_text.text = "Nota Base: "+notaBase;
         Debug.Log("Llego aqui y el valor es "+notaBase);
         List<string> escala = new List<string>();
         int pos  = 0;
@@ -241,29 +314,67 @@ public class Generator : MonoBehaviour
                 pos += 2;
             }
             escala.Add(NOTAS[pos % NOTAS.Count]);
+            Debug.Log("Escala ->"+escala[i]);
         }
-        verificacionAcordes(escala);
+        // //Primera forma
+        // verificacionAcordes(escala);
+        // //Siguiente creacion de formas
+        // for(int i = 0; i < 3; i++)
+        // {
+        //     // Probabilidad de utilizar misma o diferente forma
+        //     int prob = Random.RandomRange(0,10);
+        //     //Utilizar un repetido
+        //     if(prob < 4){
+        //         int numElements = formas.Count;
+        //         int prob2 = Random.RandomRange(0,numElements);
+        //         formasLista.Add(formas.ElementAt(prob2).Key);
+        //     }else
+        //     {
+        verificacionAcordes(escala);   
+        // verificacionDuracionAcordes();
+        // verificarAcordesTocados();
+        //     }
+        // }
+        // foreach(KeyValuePair<List<int>,List<float>> ele in formas)
+        // {
+        //     Debug.Log("Key = {0} "+string.Join(", ",ele.Key)+" Value = "+string.Join(", ", ele.Value));
+        // }
     }
 
 
     void verificacionAcordes(List<string> escala)
     {
-        notasParaAcordes.Clear();
-        longitudAcordes.Clear();
-        acordesFinales.Clear();
+        // notasParaAcordes.Clear();
+        // longitudAcordes.Clear();
+        // acordesFinales.Clear();
         string actual = "subdominante";
+        int indice = 0;
         numCompases = 8f;
+        notasParaAcordes = new List<string>();
+        longitudAcordes = new List<float>();
+        longitudMelodia = new List<float>();
+        acordesFinales = new List<int>();
         for(int i = 0; i < 7; i++)
         {
             List<string> temp = new List<string>();
             notasParaAcordes.Add(escala[i]);
-            notasParaAcordes.Add(escala[(i+2)%escala.Count]);
-            notasParaAcordes.Add(escala[(i+4)%escala.Count]);
+            if (i+2 > escala.Count)
+            {
+                notasParaAcordes.Add(escala[(i+2)%escala.Count]);
+            }else{
+                notasParaAcordes.Add(escala[(i+2)%escala.Count]);
+            }
+            if (i+4 > escala.Count)
+            {
+                notasParaAcordes.Add(escala[(i+4)%escala.Count]);
+            }else
+            {
+                notasParaAcordes.Add(escala[(i+4)%escala.Count]);
+            }
 
-
-            temp.Add(notasParaAcordes[i*3]);
-            temp.Add(notasParaAcordes[i*3+1]);
-            temp.Add(notasParaAcordes[i*3+2]);
+            temp.Add(notasParaAcordes[(i*3)]);
+            temp.Add(notasParaAcordes[(i*3)+1]);
+            temp.Add(notasParaAcordes[(i*3)+2]);
         }
 
         foreach(var item in notasParaAcordes)
@@ -282,6 +393,30 @@ public class Generator : MonoBehaviour
                 {
                     numCompases -= 4.0f;
                     longitudAcordes.Add(4f);
+                    int random = Random.Range(0,4);
+                    if (random == 0){
+                        longitudMelodia.Add(2f);
+                        longitudMelodia.Add(2f);
+                    }else
+                    if(random == 1){
+                        longitudMelodia.Add(1f);
+                        longitudMelodia.Add(1f);
+                        longitudMelodia.Add(1f);
+                        longitudMelodia.Add(1f);
+                    }
+                    else
+                    if(random == 2){
+                        longitudMelodia.Add(4f);
+                    }else{
+                        longitudMelodia.Add(0.5f);
+                        longitudMelodia.Add(0.5f);
+                        longitudMelodia.Add(0.5f);
+                        longitudMelodia.Add(0.5f);
+                        longitudMelodia.Add(0.5f);
+                        longitudMelodia.Add(0.5f);
+                        longitudMelodia.Add(0.5f);
+                        longitudMelodia.Add(0.5f);
+                    }
                 }
             }
             else
@@ -293,6 +428,24 @@ public class Generator : MonoBehaviour
                     {
                         numCompases -= 2.0f;
                         longitudAcordes.Add(2f);
+                        int random = Random.Range(0,3);
+                        if(random == 0)
+                        {
+                            longitudMelodia.Add(2f);
+                        }
+                        else
+                        if(random == 1)
+                        {
+                            longitudMelodia.Add(1f);
+                            longitudMelodia.Add(1f);
+                        }
+                        else
+                        {
+                            longitudMelodia.Add(0.5f);
+                            longitudMelodia.Add(0.5f);
+                            longitudMelodia.Add(0.5f);
+                            longitudMelodia.Add(0.5f);
+                        }
                     }
                 }
                 else
@@ -304,6 +457,7 @@ public class Generator : MonoBehaviour
                         {
                             numCompases -= 1.0f;
                             longitudAcordes.Add(1f);
+                            longitudMelodia.Add(1f);
                         }
                     }
                     else
@@ -312,18 +466,22 @@ public class Generator : MonoBehaviour
                         {
                             numCompases -= 0.5f;
                             longitudAcordes.Add(0.5f);
+                            longitudMelodia.Add(0.5f);
                         }
                     }
                 }
             }
         }
+        DictAcordeLongitud.Add(estructura, longitudAcordes);
+        DictMelodiaLongitud.Add(estructura, longitudMelodia);
+
         foreach(var item in longitudAcordes)
         {
             Debug.Log("longitud de item "+item);
         }
 
         //Guardar acordes para tocarlos
-        for(int i = 0; i<longitudAcordes.Count; i++)
+        for(int i = 0; i<DictAcordeLongitud[estructura].Count; i++)
         {
             string nota = "";
             string nota2 = "";
@@ -491,14 +649,53 @@ public class Generator : MonoBehaviour
                     actual = "dominante";
                 }
             }
+            Debug.Log("Nota 3->"+nota3);
             acordesFinales.Add(NOTAS.IndexOf(nota));
             acordesFinales.Add(NOTAS.IndexOf(nota2));
             acordesFinales.Add(NOTAS.IndexOf(nota3));
+
+            float count = 0f;
+            for (int j = 0; j < DictMelodiaLongitud[estructura].Count; j++)
+            {
+                if(DictAcordeLongitud[estructura][i] <= count)
+                {
+                    indice = j+1;
+                    break;
+                }
+                int random = Random.Range(0,3);
+                if(random == 0)
+                {
+                    notasMelodiaMusica.Add(NOTAS.IndexOf(nota));
+                }
+                else
+                if(random == 1)
+                {
+                    notasMelodiaMusica.Add(NOTAS.IndexOf(nota2));
+                }
+                else
+                if(random == 2)
+                {
+                    notasMelodiaMusica.Add(NOTAS.IndexOf(nota3));
+                }
+                count += DictMelodiaLongitud[estructura][(j+indice)%DictMelodiaLongitud[estructura].Count];
+            }
+
         }
+        DictAcorde.Add(estructura, acordesFinales);
+        DictMelodia.Add(estructura, notasMelodiaMusica);
+        Debug.Log("Notas para acorde size->"+notasParaAcordes.Count);
         foreach (var item in acordesFinales)
         {
             Debug.Log("Item acordes finales "+item);
         }
+        // try
+        // {
+        //     formas.Add(acordesFinales,longitudAcordes);
+        //     formasLista.Add(acordesFinales);
+        // }
+        // catch (System.Exception)
+        // {
+        // }
     }
 
     void calculoAcordes(List<string> notas,string notaselec, string rol)
@@ -593,6 +790,9 @@ public class Generator : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        // for(int i = 0; i < listaEstructura.Count; i++){
+        //         Debug.Log("Lista estructura i"+listaEstructura[i]);
+        // }
         if(Player)
         {
             BPM = int.Parse(BPM_text.text);
@@ -600,64 +800,113 @@ public class Generator : MonoBehaviour
             sonidosPiano = (60.0f/BPM);
             time += Time.deltaTime;
             time2 += Time.deltaTime;
+            time3 += Time.deltaTime;
             if(time >= soundPerSecond)
             {
-                if(beat == subdivisionBase*4)
+                if(beat == DictFiller[listaEstructura[tocandoAhoraEstructura]].Count)
                 {
                     beat = 0;
+
+                    // for (int i = 0; i < DictFiller[listaEstructura[tocandoAhoraEstructura]].Count; i++)
+                    // {
+
+                    // }
                 }
-                if(metric[beat] == 1)
+                if(DictFiller[listaEstructura[tocandoAhoraEstructura]][beat%DictFiller[listaEstructura[tocandoAhoraEstructura]].Count] == 1)
                 {
-                    sounds[0].Play();
+                    // sounds[0].Play();
+                    fillerSound.Play();
                 }
-                if(filler[beat] == 1)
+                if(DictMetrica[listaEstructura[tocandoAhoraEstructura]][beat%DictMetrica[listaEstructura[tocandoAhoraEstructura]].Count] == 1)
                 {
-                    sounds[1].Play();
+                    metricSound.Play();
                 }
-                if(rythm[beat] == 1)
+                if(DictRitmo[listaEstructura[tocandoAhoraEstructura]][beat%DictRitmo[listaEstructura[tocandoAhoraEstructura]].Count] == 1)
                 {
-                    sounds[2].Play();
+                    rythmSound.Play();
                 }
                 time = 0.0f;
                 beat += 1;
             }
-            if(time2 <= (sonidosPiano*longitudAcordes[acordeActual]))
+            if(time2 <= (sonidosPiano*DictAcordeLongitud[listaEstructura[tocandoAhoraEstructura]][acordeActual%DictAcordeLongitud[listaEstructura[tocandoAhoraEstructura]].Count]))
             {
                 Debug.Log("Ingreso al if de update ");
-                if(acordeActual == longitudAcordes.Count-1)
+                if(acordeActual == DictAcordeLongitud[listaEstructura[tocandoAhoraEstructura]].Count-1)
                 {
                     acordeActual = 0;
+                    tocandoAhoraEstructura += 1;
+                    tocandoAhoraMelodia = 0;
+                    beat = 0;
+                    if(tocandoAhoraEstructura == listaEstructura.Count)
+                    {
+                        tocandoAhoraEstructura = 0;
+                    }
                 }
                 if(playSound == false)
                 {
                     playSound = true;
-                    acordes[acordesFinales[acordeActual]].Play();
-                    acordes[acordesFinales[acordeActual+1]].Play();
-                    acordes[acordesFinales[acordeActual+2]].Play();
+                    nota_base.text = "Nota Acorde Base: "+NOTAS[DictAcorde[listaEstructura[tocandoAhoraEstructura]][acordeActual*3]%DictAcorde[listaEstructura[tocandoAhoraEstructura]].Count]; 
+                    acordes[DictAcorde[listaEstructura[tocandoAhoraEstructura]][acordeActual*3]%DictAcorde[listaEstructura[tocandoAhoraEstructura]].Count].Play();
+                    acordes[DictAcorde[listaEstructura[tocandoAhoraEstructura]][(acordeActual*3)+1]%DictAcorde[listaEstructura[tocandoAhoraEstructura]].Count].Play();
+                    acordes[DictAcorde[listaEstructura[tocandoAhoraEstructura]][(acordeActual*3)+2]%DictAcorde[listaEstructura[tocandoAhoraEstructura]].Count].Play();
+                    // acordes[acordesFinales[acordeActual]].Play();
+                    // acordes[acordesFinales[acordeActual+1]].Play();
+                    // acordes[acordesFinales[acordeActual+2]].Play();
                 }                
             }
             else
-                if(time2 > (sonidosPiano * longitudAcordes[acordeActual]))
+            if(time2 > (sonidosPiano * DictAcordeLongitud[listaEstructura[tocandoAhoraEstructura]][acordeActual%DictAcordeLongitud[listaEstructura[tocandoAhoraEstructura]].Count]))
+            {
+                Debug.Log("Ingreso al else del update");
+                acordes[DictAcorde[listaEstructura[tocandoAhoraEstructura]][acordeActual*3]%DictAcorde[listaEstructura[tocandoAhoraEstructura]].Count].Stop();
+                acordes[DictAcorde[listaEstructura[tocandoAhoraEstructura]][(acordeActual*3)+1]%DictAcorde[listaEstructura[tocandoAhoraEstructura]].Count].Stop();
+                acordes[DictAcorde[listaEstructura[tocandoAhoraEstructura]][(acordeActual*3)+2]%DictAcorde[listaEstructura[tocandoAhoraEstructura]].Count].Stop();
+                // acordes[acordesFinales[acordeActual]].Stop();
+                // acordes[acordesFinales[acordeActual+1]].Stop();
+                // acordes[acordesFinales[acordeActual+2]].Stop();
+                time2 = 0f;
+                playSound = false;
+                acordeActual += 1;
+            }
+
+            if(time3 <= (sonidosPiano*DictMelodiaLongitud[listaEstructura[tocandoAhoraEstructura]][tocandoAhoraMelodia % DictMelodiaLongitud[listaEstructura[tocandoAhoraEstructura]].Count]))
+            {
+                if (tocandoAhoraMelodia == DictMelodiaLongitud[listaEstructura[tocandoAhoraEstructura]].Count-1)
                 {
-                    Debug.Log("Ingreso al else del update");
-                    acordes[acordesFinales[acordeActual]].Stop();
-                    acordes[acordesFinales[acordeActual+1]].Stop();
-                    acordes[acordesFinales[acordeActual+2]].Stop();
-                    time2 = 0f;
-                    playSound = false;
-                    acordeActual += 1;
+                    tocandoAhoraMelodia = 0;
                 }
+                if (playingMelody == false)
+                {
+                    playingMelody = true;
+                    acordes[DictMelodia[listaEstructura[tocandoAhoraEstructura]][tocandoAhoraMelodia]%DictMelodia[listaEstructura[tocandoAhoraEstructura]].Count].Play();
+                }
+            }
+            else
+            if(time3 > (sonidosPiano * DictMelodiaLongitud[listaEstructura[tocandoAhoraEstructura]][acordeActual % DictMelodiaLongitud[listaEstructura[tocandoAhoraEstructura]].Count]))
+            {
+                acordes[DictMelodia[listaEstructura[tocandoAhoraEstructura]][tocandoAhoraMelodia]%DictMelodia[listaEstructura[tocandoAhoraEstructura]].Count].Stop();
+                playingMelody = false;
+                time3 = 0f;
+                tocandoAhoraMelodia += 1;
+            }
         }
         else
         {
             beat = 0;
             acordeActual = 0;
+            tocandoAhoraEstructura = 0;
+            tocandoAhoraMelodia = 0;
+            tocandoAhoraAcorde = 0;
         }
     }
 
     public void StartPlayer()
     {
         Player = !Player;
+        if(Player == false){
+            playingMelody = false;
+            playSound = false;
+        }
         // StartCoroutine(coroutine);
     }
 
